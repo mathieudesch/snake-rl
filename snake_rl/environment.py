@@ -7,14 +7,12 @@ import os
 
 Point = namedtuple('Point', 'x, y')
 
-# Colors
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 RED = (200, 0, 0)
 BLUE1 = (0, 0, 255)
 BLUE2 = (0, 100, 255)
 
-# Screen dimensions
 BLOCK_SIZE = 20
 
 class Direction(Enum):
@@ -27,7 +25,6 @@ class SnakeGameAI:
     def __init__(self, w=640, h=480, surface=None):
         self.w = w
         self.h = h
-        # display
         self.surface = surface
         
         pygame.font.init()
@@ -35,7 +32,6 @@ class SnakeGameAI:
         self.reset()
 
     def reset(self):
-        # init game state
         self.direction = Direction.RIGHT
         self.head = Point(self.w / 2, self.h / 2)
         self.snake = [self.head,
@@ -56,7 +52,7 @@ class SnakeGameAI:
     def play_step(self, action):
         self.frame_iteration += 1
         
-        self._move(action) # update the head
+        self._move(action)
         self.snake.insert(0, self.head)
 
         reward = 0
@@ -64,7 +60,7 @@ class SnakeGameAI:
         if self.is_collision() or self.frame_iteration > 50 * len(self.snake):
             game_over = True
             reward = -10
-            self.draw() # Draw final state
+            self.draw()
             return reward, game_over, self.score
 
         if self.head == self.food:
@@ -73,6 +69,7 @@ class SnakeGameAI:
             self._place_food()
         else:
             self.snake.pop()
+            reward = -0.01
 
         self.draw()
         return reward, game_over, self.score
@@ -92,7 +89,6 @@ class SnakeGameAI:
         if self.surface is None:
             return
             
-        # Black background for this game instance
         self.surface.fill(BLACK)
 
         for pt in self.snake:
@@ -111,13 +107,13 @@ class SnakeGameAI:
         idx = clock_wise.index(self.direction)
 
         if np.array_equal(action, [1, 0, 0]):
-            new_dir = clock_wise[idx] # no change
+            new_dir = clock_wise[idx]
         elif np.array_equal(action, [0, 1, 0]):
             next_idx = (idx + 1) % 4
-            new_dir = clock_wise[next_idx] # right turn r -> d -> l -> u
-        else: # [0, 0, 1]
+            new_dir = clock_wise[next_idx]
+        else: 
             next_idx = (idx - 1) % 4
-            new_dir = clock_wise[next_idx] # left turn r -> u -> l -> d
+            new_dir = clock_wise[next_idx]
 
         self.direction = new_dir
 

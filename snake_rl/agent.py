@@ -9,7 +9,6 @@ MAX_MEMORY = 500_000
 BATCH_SIZE = 30
 LR = 0.0005
 TARGET_UPDATE_FREQUENCY = 25
-BLOCK_SIZE = 20
 
 class Agent:
     def __init__(self):
@@ -18,41 +17,57 @@ class Agent:
         self.gamma = 0.99
         self.memory = deque(maxlen=MAX_MEMORY)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = Linear_QNet(49, 256, 3).to(self.device)
-        self.target_model = Linear_QNet(49, 256, 3).to(self.device)
+        self.model = Linear_QNet(11, 256, 3).to(self.device)
+        self.target_model = Linear_QNet(11, 256, 3).to(self.device)
         self.target_model.load_state_dict(self.model.state_dict())
         self.target_model.eval()
         self.trainer = QTrainer(self.model, self.target_model, lr=LR, gamma=self.gamma)
 
     def get_state(self, game):
         head = game.snake[0]
-        grid_size = 7
-        state = np.zeros((grid_size, grid_size), dtype=int)
+        point_l = Point(head.x - 20, head.y)
+        point_r = Point(head.x + 20, head.y)
+        point_u = Point(head.x, head.y - 20)
+        point_d = Point(head.x, head.y + 20)
         
-        # Create a grid representation of the game state around the snake's head
-        for r in range(grid_size):
-            for c in range(grid_size):
-                # World coordinates for this grid cell
-                x = head.x + (c - grid_size // 2) * BLOCK_SIZE
-                y = head.y + (r - grid_size // 2) * BLOCK_SIZE
-                
-                p = Point(x, y)
-                
-                # 3: Wall
-                if x < 0 or x >= game.w or y < 0 or y >= game.h:
-                    state[r, c] = 3
-                    continue
-                
-                # 2: Food
-                if p == game.food:
-                    state[r, c] = 2
-                    continue
+        dir_l = game.direction == Direction.LEFT
+        dir_r = game.direction == Direction.RIGHT
+        dir_u = game.direction == Direction.UP
+        dir_d = game.direction == Direction.DOWN
 
-                # 1: Snake Body
-                if p in game.snake:
-                    state[r, c] = 1
-                    
-        return state.flatten()
+        state = [
+            # Danger straight
+            (dir_r and game.is_collision(point_r)) or 
+            (dir_l and game.is_collision(point_l)) or 
+            (dir_u and game.is_collision(point_u)) or 
+            (dir_d and game.is_collision(point_d)),
+
+            # Danger right
+            (dir_u and game.is_collision(point_r)) or 
+            (dir_d and game.is_collision(point_l)) or 
+            (dir_l and game.is_collision(point_u)) or 
+            (dir_r and game.is_collision(point_d)),
+
+            # Danger left
+            (dir_d and game.is_collision(point_r)) or 
+            (dir_u and game.is_collision(point_l)) or 
+            (dir_r and game.is_collision(point_u)) or 
+            (dir_l and game.is_collision(point_d)),
+            
+            # Move direction
+            dir_l,
+            dir_r,
+            dir_u,
+            dir_d,
+            
+            # Food location 
+            game.food.x < game.head.x,  # food left
+            game.food.x > game.head.x,  # food right
+            game.food.y < game.head.y,  # food up
+            game.food.y > game.head.y  # food down
+            ]
+
+        return np.array(state, dtype=int)
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
